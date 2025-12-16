@@ -460,7 +460,7 @@ const canvasCtx = canvas.getContext('2d');
 // visual updates
 looper.onStateChange = (state) => {
     // console.log("State:", state);
-    circle.classList.remove('recording', 'playing');
+    circle.classList.remove('recording', 'playing', 'flash-white');
 
     if (state === 'RECORDING') {
         statusText.innerText = "Recording...";
@@ -481,10 +481,20 @@ looper.onStateChange = (state) => {
     }
 };
 
+let lastProgress = 0;
 looper.onProgress = (p) => {
     // Rotate the circle based on progress
     const deg = p * 360;
     circle.style.transform = `rotate(${deg}deg)`;
+
+    // Detect Loop Wrap (progress drops from near 1.0 to near 0.0)
+    if (p < lastProgress && looper.isPlaying) {
+        // Flash!
+        circle.classList.remove('flash-white');
+        void circle.offsetWidth; // Trigger reflow
+        circle.classList.add('flash-white');
+    }
+    lastProgress = p;
 };
 
 // Visualizer Animation Loop

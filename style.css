@@ -80,7 +80,36 @@ main {
     /* For canvas rounding */
 }
 
-/* ... existing ... */
+@keyframes pulse-red {
+    0% {
+        box-shadow: 0 0 0 0 rgba(255, 77, 77, 0.7);
+    }
+
+    70% {
+        box-shadow: 0 0 0 20px rgba(255, 77, 77, 0);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(255, 77, 77, 0);
+    }
+}
+
+/* Loop Seam Flash */
+.flash-white {
+    animation: flash-white 0.2s ease-out;
+}
+
+@keyframes flash-white {
+    0% {
+        background-color: rgba(255, 255, 255, 0.3);
+        box-shadow: 0 0 20px rgba(255, 255, 255, 0.8);
+    }
+
+    100% {
+        background-color: var(--surface-color);
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+    }
+}
 
 #visualizer-canvas {
     position: absolute;
