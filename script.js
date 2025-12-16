@@ -66,16 +66,33 @@ class Looper {
      * Start recording a new layer.
      * If no master loop, this starts the Master Loop recording.
      */
-    startRecording() {
+    async startRecording() {
         if (this.isRecording) return;
-        if (!this.ctx) this.init();
+
+        // Ensure AudioContext and Stream are ready
+        if (!this.ctx || !this.stream) {
+            await this.init();
+            if (!this.stream) {
+                console.error("No stream available");
+                return;
+            }
+        }
+
+        // Double check state after await
+        if (this.ctx.state === 'suspended') {
+            await this.ctx.resume();
+        }
 
         this.isRecording = true;
         this.recordedChunks = [];
-
-        // Use MediaRecorder for simplicity in V1
-        // Note: For tighter timing in V2, we might strictly use AudioWorklet
-        this.recorder = new MediaRecorder(this.stream);
+        try {
+            this.recorder = new MediaRecorder(this.stream);
+        } catch (e) {
+            console.error("MediaRecorder init failed:", e);
+            alert("Microphone recording failed. Check console.");
+            this.isRecording = false;
+            return;
+        }
 
         this.recorder.ondataavailable = (e) => {
             if (e.data.size > 0) this.recordedChunks.push(e.data);
