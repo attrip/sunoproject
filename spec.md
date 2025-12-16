@@ -40,7 +40,8 @@ To create a simple, intuitive web-based looper/sampler that allows users to buil
 ## Technical Stack
 *   **HTML5/CSS3**: Clean, responsive layout.
 *   **Vanilla JavaScript**: No heavy frameworks.
-*   **Deployment**: GitHub Pages.
+*   **Deployment**: GitHub Pages (requires `docs/` folder or root build).
+    *   **Repository**: [https://github.com/attrip/sunoproject.git](https://github.com/attrip/sunoproject.git)
 *   **Export**: WAV encoding.
 *   **Audio Architecture**:
     *   Maintain separate `AudioBuffers` for each recording layer to enable **Undo** and potential future mixing.
