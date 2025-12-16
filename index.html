@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,6 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
 </head>
+
 <body>
     <div class="app-container">
         <header>
@@ -18,14 +20,24 @@
 
         <main>
             <div id="loop-circle" class="loop-circle">
+                <canvas id="visualizer-canvas" width="240" height="240"></canvas>
                 <div class="progress-ring"></div>
                 <div class="center-content">
                     <span id="recording-indicator">REC</span>
                 </div>
             </div>
-            
+
             <div class="instructions">
-                <p>Hold <strong>Space</strong> or <strong>Tap Circle</strong> to Record</p>
+                <h3>How to use (Suno Looper)</h3>
+                <ul>
+                    <li><strong>1. Start Recording:</strong> Hold <code>Space</code> or <code>Tap Circle</code> to
+                        record your first beat.</li>
+                    <li><strong>2. Loop:</strong> Release to set the loop length (max 10s). It will start playing.</li>
+                    <li><strong>3. Overdub:</strong> Hold <code>Space</code> again to layer new sounds on top.</li>
+                    <li><strong>4. Undo:</strong> Press <code>Backspace</code> to remove the last layer.</li>
+                    <li><strong>5. Export:</strong> Click Export to save as WAV.</li>
+                </ul>
+                <p class="hint">Tip: Use headphones for best results!</p>
             </div>
         </main>
 
@@ -38,9 +50,10 @@
                     </svg>
                     Undo
                 </button>
-                
+
                 <button id="btn-play-stop" class="control-btn primary" title="Play/Stop (Enter)">
-                    <svg id="icon-play" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="display:none;">
+                    <svg id="icon-play" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="none"
+                        style="display:none;">
                         <polygon points="5 3 19 12 5 21 5 3"></polygon>
                     </svg>
                     <svg id="icon-stop" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="none">
@@ -56,9 +69,9 @@
                     </svg>
                     Clear
                 </button>
-                
+
                 <button id="btn-export" class="control-btn accent" title="Export WAV">
-                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                         <polyline points="7 10 12 15 17 10"></polyline>
                         <line x1="12" y1="15" x2="12" y2="3"></line>
@@ -70,4 +83,5 @@
     </div>
     <script src="script.js"></script>
 </body>
+
 </html>

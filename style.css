@@ -14,7 +14,8 @@
     box-sizing: border-box;
     margin: 0;
     padding: 0;
-    user-select: none; /* Prevent selection during rapid clicking */
+    user-select: none;
+    /* Prevent selection during rapid clicking */
 }
 
 body {
@@ -74,52 +75,63 @@ main {
     align-items: center;
     cursor: pointer;
     transition: transform 0.1s ease, box-shadow 0.3s ease;
-    box-shadow: 0 0 20px rgba(0,0,0,0.5);
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+    /* For canvas rounding */
 }
 
-.loop-circle:active {
-    transform: scale(0.95);
-}
+/* ... existing ... */
 
-.loop-circle .center-content {
-    z-index: 2;
-    font-size: 2rem;
-    font-weight: 800;
-    color: var(--text-secondary);
-    transition: color 0.2s;
-}
-
-/* State: Recording */
-.loop-circle.recording {
-    box-shadow: 0 0 50px rgba(255, 77, 77, 0.4);
-    animation: pulse-red 1s infinite;
-    border: 4px solid var(--accent-red);
-}
-.loop-circle.recording .center-content {
-    color: var(--accent-red);
-}
-
-/* State: Playing */
-.loop-circle.playing {
-    border: 4px solid var(--accent-green);
-    box-shadow: 0 0 30px rgba(77, 255, 136, 0.2);
-}
-.loop-circle.playing .center-content {
-    color: var(--accent-green);
-}
-
-/* Progress Ring Animation */
-/* Note: Simple CSS animation for now, can be JS driven for precision */
-@keyframes pulse-red {
-    0% { box-shadow: 0 0 0 0 rgba(255, 77, 77, 0.7); }
-    70% { box-shadow: 0 0 0 20px rgba(255, 77, 77, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(255, 77, 77, 0); }
+#visualizer-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    opacity: 0.6;
+    pointer-events: none;
 }
 
 .instructions {
+    text-align: left;
+    max-width: 400px;
+    background: #1a1a1a;
+    padding: 1.5rem;
+    border-radius: 8px;
+    border: 1px solid #333;
+}
+
+.instructions h3 {
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+    color: var(--text-primary);
+}
+
+.instructions ul {
+    list-style: none;
+    padding: 0;
     font-size: 0.9rem;
     color: var(--text-secondary);
-    opacity: 0.7;
+}
+
+.instructions li {
+    margin-bottom: 0.5rem;
+}
+
+.instructions code {
+    background: #333;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: monospace;
+    color: #fff;
+}
+
+.hint {
+    margin-top: 1rem;
+    font-style: italic;
+    font-size: 0.8rem;
+    color: var(--accent-blue);
 }
 
 /* Controls */
@@ -166,6 +178,7 @@ footer {
     background: var(--text-primary);
     color: var(--bg-color);
 }
+
 .control-btn.primary:hover {
     background: #ffffff;
     opacity: 0.9;
@@ -174,6 +187,7 @@ footer {
 .control-btn.danger {
     color: var(--accent-red);
 }
+
 .control-btn.danger:hover {
     background: rgba(255, 77, 77, 0.1);
 }

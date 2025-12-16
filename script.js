@@ -32,6 +32,10 @@ class Looper {
 
         this.recordingLoopOffset = 0;
         this.autoStopTimer = null;
+
+        // Visualizer
+        this.analyser = null;
+        this.dataArray = null;
     }
 
     async init() {
@@ -54,10 +58,18 @@ class Looper {
                     }
                 });
                 this.input = this.ctx.createMediaStreamSource(this.stream);
+
+                // Analyser Setup
+                this.analyser = this.ctx.createAnalyser();
+                this.analyser.fftSize = 256;
+                this.input.connect(this.analyser);
+                const bufferLength = this.analyser.frequencyBinCount;
+                this.dataArray = new Uint8Array(bufferLength);
+
                 console.log("Audio Initialized");
             } catch (err) {
                 console.error("Mic Error:", err);
-                alert("Could not access microphone. Please allow permissions.");
+                alert("Could not access microphone. Ensure site is HTTPS and permitted.");
             }
         }
     }
@@ -83,10 +95,19 @@ class Looper {
             await this.ctx.resume();
         }
 
+        this.mimeType = 'audio/webm';
+        if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+            this.mimeType = 'audio/webm;codecs=opus';
+        } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+            this.mimeType = 'audio/mp4';
+        }
+
+        console.log("Using MIME Type:", this.mimeType);
+
         this.isRecording = true;
         this.recordedChunks = [];
         try {
-            this.recorder = new MediaRecorder(this.stream);
+            this.recorder = new MediaRecorder(this.stream, { mimeType: this.mimeType });
         } catch (e) {
             console.error("MediaRecorder init failed:", e);
             alert("Microphone recording failed. Check console.");
@@ -125,81 +146,91 @@ class Looper {
     async stopRecording() {
         if (!this.isRecording) return;
 
+        if (this.autoStopTimer) clearTimeout(this.autoStopTimer);
+
         return new Promise(resolve => {
             this.recorder.onstop = async () => {
                 this.isRecording = false;
 
-                const blob = new Blob(this.recordedChunks, { 'type': 'audio/ogg; codecs=opus' });
-                const arrayBuffer = await blob.arrayBuffer();
-                const audioBuffer = await this.ctx.decodeAudioData(arrayBuffer);
+                const blob = new Blob(this.recordedChunks, { type: this.mimeType });
 
-                if (!this.masterBuffer) {
-                    // === MASTER LOOP LOGIC ===
-                    // Trim to exact recorded duration (or clamp to 10s)
-                    let duration = this.ctx.currentTime - this.recordingStartTime;
-                    if (duration > this.maxLoopLength) duration = this.maxLoopLength;
+                try {
+                    const arrayBuffer = await blob.arrayBuffer();
+                    const audioBuffer = await this.ctx.decodeAudioData(arrayBuffer);
 
-                    // Sanity check: verify audioBuffer duration matches 'duration' closely
-                    // Use the Buffer's play time as the source of truth for loop length to avoid gaps
-                    this.masterBuffer = audioBuffer;
-                    this.loopDuration = audioBuffer.duration;
+                    if (!this.masterBuffer) {
+                        // === MASTER LOOP LOGIC ===
+                        // Trim to exact recorded duration (or clamp to 10s)
+                        let duration = this.ctx.currentTime - this.recordingStartTime;
+                        // Use actual buffer duration to be safe, but clamp if absurdly long
+                        if (duration > this.maxLoopLength) duration = this.maxLoopLength;
 
-                    // Immediately start playing
-                    this.play();
-                } else {
-                    // === OVERDUB LOGIC ===
-                    // Align the new recording to the Master Loop
-                    // Create a silence-padded buffer matching the Master length
-                    if (this.masterBuffer) {
-                        const newLayer = this.ctx.createBuffer(
-                            this.masterBuffer.numberOfChannels,
-                            this.masterBuffer.length,
-                            this.masterBuffer.sampleRate
-                        );
+                        // Sanity check: verify audioBuffer duration matches 'duration' closely
+                        // Use the Buffer's play time as the source of truth for loop length to avoid gaps
+                        console.log("Master Loop Created. Duration:", audioBuffer.duration);
+                        this.masterBuffer = audioBuffer;
+                        this.loopDuration = audioBuffer.duration;
 
-                        // Calculate sample offset
-                        // offsetTime / loopDuration * totalSamples
-                        const ratio = this.recordingLoopOffset / this.loopDuration;
-                        const sampleOffset = Math.floor(ratio * this.masterBuffer.length);
+                        // Immediately start playing
+                        this.play();
+                    } else {
+                        // === OVERDUB LOGIC ===
+                        // Align the new recording to the Master Loop
+                        // Create a silence-padded buffer matching the Master length
+                        if (this.masterBuffer) {
+                            const newLayer = this.ctx.createBuffer(
+                                this.masterBuffer.numberOfChannels,
+                                this.masterBuffer.length,
+                                this.masterBuffer.sampleRate
+                            );
 
-                        // Copy data
-                        // Handle Loop Wrap-around?
-                        // For V1, if it spills over, we just truncate or let it wrap (simple: truncate for now)
-                        for (let ch = 0; ch < this.masterBuffer.numberOfChannels; ch++) {
-                            const destData = newLayer.getChannelData(ch);
-                            const srcData = audioBuffer.getChannelData(ch < audioBuffer.numberOfChannels ? ch : 0);
+                            // Calculate sample offset
+                            // offsetTime / loopDuration * totalSamples
+                            const ratio = this.recordingLoopOffset / this.loopDuration;
+                            const sampleOffset = Math.floor(ratio * this.masterBuffer.length);
 
-                            // Simple copy with boundary check
-                            for (let i = 0; i < srcData.length; i++) {
-                                const targetIdx = (sampleOffset + i) % newLayer.length; // Wrap around!
-                                destData[targetIdx] += srcData[i]; // Mix? Or Overwrite?
-                                // Spec implies layering, so mixing is better if we are destructively adding?
-                                // No, 'layers' logic keeps them separate. So we just set the value.
-                                destData[targetIdx] = srcData[i];
+                            // Copy data
+                            // Handle Loop Wrap-around?
+                            // For V1, if it spills over, we just truncate or let it wrap (simple: truncate for now)
+                            for (let ch = 0; ch < this.masterBuffer.numberOfChannels; ch++) {
+                                const destData = newLayer.getChannelData(ch);
+                                const srcData = audioBuffer.getChannelData(ch < audioBuffer.numberOfChannels ? ch : 0);
+
+                                // Simple copy with boundary check
+                                for (let i = 0; i < srcData.length; i++) {
+                                    const targetIdx = (sampleOffset + i) % newLayer.length; // Wrap around!
+                                    destData[targetIdx] += srcData[i]; // Mix? Or Overwrite?
+                                    // Spec implies layering, so mixing is better if we are destructively adding?
+                                    // No, 'layers' logic keeps them separate. So we just set the value.
+                                    destData[targetIdx] = srcData[i];
+                                }
                             }
+
+                            this.layers.push(newLayer);
                         }
 
-                        this.layers.push(newLayer);
-                    }
+                        // Sync up: If we are playing, the new layer needs to start NOW?
+                        // Actually, since we padded it to be full loop length, we can just start it
+                        // synchronized with the Master Node's loop cycle.
+                        // But changing nodes mid-flight is tricky.
+                        // Simplest V1: Restart all loops to resync (might cause a click).
+                        // smooth playback: create just this node and start it at the correct offset?
+                        // "source.start(0, currentLoopTime)"
 
-                    // Sync up: If we are playing, the new layer needs to start NOW?
-                    // Actually, since we padded it to be full loop length, we can just start it
-                    // synchronized with the Master Node's loop cycle.
-                    // But changing nodes mid-flight is tricky.
-                    // Simplest V1: Restart all loops to resync (might cause a click).
-                    // smooth playback: create just this node and start it at the correct offset?
-                    // "source.start(0, currentLoopTime)"
-
-                    if (this.isPlaying) {
-                        const elapsedTime = (this.ctx.currentTime - this.loopStartTime) % this.loopDuration;
-                        // Add just this layer
-                        const source = this.ctx.createBufferSource();
-                        source.buffer = this.layers[this.layers.length - 1]; // The new one
-                        source.loop = true;
-                        source.connect(this.ctx.destination);
-                        source.start(0, elapsedTime);
-                        this.layerNodes.push(source);
+                        if (this.isPlaying) {
+                            const elapsedTime = (this.ctx.currentTime - this.loopStartTime) % this.loopDuration;
+                            // Add just this layer
+                            const source = this.ctx.createBufferSource();
+                            source.buffer = this.layers[this.layers.length - 1]; // The new one
+                            source.loop = true;
+                            source.connect(this.ctx.destination);
+                            source.start(0, elapsedTime);
+                            this.layerNodes.push(source);
+                        }
                     }
+                } catch (err) {
+                    console.error("Audio Decode Error:", err);
+                    alert("Failed to process audio. Format might be unsupported.");
                 }
                 resolve();
             };
@@ -423,6 +454,8 @@ const looper = new Looper();
 const circle = document.getElementById('loop-circle');
 const statusText = document.getElementById('status-text');
 const recIndicator = document.getElementById('recording-indicator');
+const canvas = document.getElementById('visualizer-canvas');
+const canvasCtx = canvas.getContext('2d');
 
 // visual updates
 looper.onStateChange = (state) => {
@@ -453,6 +486,43 @@ looper.onProgress = (p) => {
     const deg = p * 360;
     circle.style.transform = `rotate(${deg}deg)`;
 };
+
+// Visualizer Animation Loop
+function drawVisualizer() {
+    requestAnimationFrame(drawVisualizer);
+
+    if (!looper.analyser) return;
+
+    looper.analyser.getByteTimeDomainData(looper.dataArray);
+
+    canvasCtx.fillStyle = 'rgba(30, 30, 30, 0.2)'; // Fade out effect
+    canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+
+    canvasCtx.lineWidth = 2;
+    canvasCtx.strokeStyle = looper.isRecording ? 'rgb(255, 77, 77)' : 'rgb(77, 255, 136)';
+    canvasCtx.beginPath();
+
+    const sliceWidth = canvas.width * 1.0 / looper.analyser.fftSize;
+    let x = 0;
+
+    for (let i = 0; i < looper.analyser.fftSize; i++) {
+        const v = looper.dataArray[i] / 128.0;
+        const y = v * canvas.height / 2;
+
+        if (i === 0) {
+            canvasCtx.moveTo(x, y);
+        } else {
+            canvasCtx.lineTo(x, y);
+        }
+
+        x += sliceWidth;
+    }
+
+    canvasCtx.lineTo(canvas.width, canvas.height / 2);
+    canvasCtx.stroke();
+}
+
+drawVisualizer();
 
 
 // === Inputs ===
