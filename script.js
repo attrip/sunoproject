@@ -51,9 +51,9 @@ class Looper {
             try {
                 this.stream = await navigator.mediaDevices.getUserMedia({
                     audio: {
-                        echoCancellation: false,
-                        noiseSuppression: false,
-                        autoGainControl: false,
+                        echoCancellation: true, // Fix for speaker feedback (stops re-recording playback)
+                        noiseSuppression: true, // Helps with feedback squeal
+                        autoGainControl: false, // Keep false to preserve dynamics
                         latency: 0
                     }
                 });
